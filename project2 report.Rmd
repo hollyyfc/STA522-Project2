@@ -1,0 +1,41 @@
+---
+title: "Project2"
+author: "Holly Cui, Elyse McFalls"
+date: "2023-12-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
+
+In our design, there are 16 conditions of paper planes as follows:
+
+ID     Treatment                                ID           Treatment
+---    ----------------------                   --------     --------------------
+a      Only high rotor length                   bd           High leg length & leg clip
+b      Only high leg length                     cd           High leg width & leg clip
+c      Only high leg width                      abc          High rotor length & high leg length & high leg width
+d      Only leg clip                            abd          High rotor length & high leg length & leg clip
+ab     High rotor length & high leg length      acd          High rotor length & high leg width & leg clip
+ac     High rotor length & high leg width       bcd          High leg length & high leg width & leg clip
+ad     High rotor length & leg clip             abcd         High on all factors
+bc     High leg length & high leg width         1            Low on all factors
+
+where the levels of highs and lows are defined by: 
+
+  - **Rotor length**: low = 7.5 cm, high = 8.5 cm
+  - **Leg length**: low = 7.5 cm, high = 12.0 cm
+  - **Leg width**: low = 3.2 cm, high = 5.0 cm
+  - **Leg clip**: no, yes
+
+
+```{r}
+set.seed(123)
+trt = c(rep("a", 5), rep("b", 5), rep("c", 5), rep("abc", 5))
+```
+
