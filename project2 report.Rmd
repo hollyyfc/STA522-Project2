@@ -26,7 +26,7 @@ ac     High rotor length & high leg width       bcd          High leg length & h
 ad     High rotor length & leg clip             abcd         High on all factors
 bc     High leg length & high leg width         1            Low on all factors
 
-where the levels of highs and lows are defined by: 
+where the levels of highs and lows are defined as: 
 
   - **Rotor length**: low = 7.5 cm, high = 8.5 cm
   - **Leg length**: low = 7.5 cm, high = 12.0 cm
@@ -35,7 +35,95 @@ where the levels of highs and lows are defined by:
 
 
 ```{r}
+# randomize treatment for each flight
 set.seed(123)
-trt = c(rep("a", 5), rep("b", 5), rep("c", 5), rep("abc", 5))
+trt = c(rep("a", 5), rep("b", 5), rep("c", 5), rep("d", 5),
+        rep("ab", 5), rep("ac", 5), rep("ad", 5), rep("bc", 5),
+        rep("bd", 5), rep("cd", 5), rep("abc", 5), rep("abd", 5),
+        rep("acd", 5), rep("bcd", 5), rep("abcd", 5), rep("1", 5))
+sample(trt)
 ```
+
+
+```{r}
+plane = read.csv("paperplane.csv", header = T)
+dim(plane)
+```
+
+EDA: 
+
+```{r}
+ggplot(plane, aes(x = time*100)) + 
+  geom_histogram(aes(y=after_stat(density)), 
+                 binwidth=7, color="black", fill="grey") + 
+  geom_vline(aes(xintercept = mean(time)*100),
+             color="blue", linetype="dashed", linewidth=1) +
+  geom_density(alpha=.2, fill="#FF6666") +
+  labs(title = "Distribution of Helicopter Flight Duration", 
+       x = "Time (sec * 100)", y = "Count")
+```
+  - Insights: 
+
+```{r}
+plane %>%
+  group_by(trt) %>%
+  summarise(mean_time = mean(time*100)) %>%
+  arrange(desc(mean_time)) %>%
+  ggplot(aes(y = mean_time, x = fct_rev(fct_reorder(trt, mean_time)))) + 
+  geom_col(color="black", fill="grey") + 
+  geom_hline(aes(yintercept = mean(mean_time)),
+             color="blue", linetype="dashed", linewidth=1) +
+  labs(title = "Average Flight Duration by Treatments", 
+       x = "Treatment", y = "Average Time (sec * 100)")
+```
+  - insights: the presence of a - long rotor seems to be helping long duration. the presence of d is discouraging long duration.
+
+
+```{r}
+plane %>%
+  mutate(trt = factor(trt, levels = c("ac", "ad", "ab", "a", 
+                                      "abd", "abc", "1", "b", 
+                                      "d", "c", "bc", "acd", 
+                                      "bd", "abcd", "cd", "bcd"))) %>%
+ggplot(aes(x = trt, y = time*100)) + 
+  geom_boxplot() + 
+  labs(title = "Distribution of Flight Duration by Treatments", 
+       x = "Treatment", y = "Duraction (sec * 100)")
+
+tapply(plane[,1], plane[,6], sd)
+```
+  - Insights: box plots are difficult to interpret with only 5 or so observations per box, but we can still observe 
+    - an outlier in treatment bcd and other groups: we may want to estimate the model with and without that point to see if our conclusions are overly sensitive to that point. But since most outliers in groups are within the normal range, we don't worry too much. 
+    - Along w previous plot, we might need to resolve the problem of distribution of time is right-skewed.
+    - The var for group d and acd are relatively larger. However, since the total duration is measured under second, the largest difference is only several miliseconds away, so we can use regression under the equal var assumption. (from the math calculation, most of them confirmed to be the same --> with very small sample size, it is difficult to conclude definitively that the variances are different across groups.)
+    
+
+Modeling: 
+
+```{r}
+reg_inter = lm(time ~ factor(rotor) * factor(leg_len) * factor(leg_wid) * factor(clip), data = plane)
+summary(reg_inter)
+```
+
+```{r}
+plot(reg_inter)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
