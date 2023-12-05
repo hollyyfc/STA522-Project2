@@ -13,7 +13,17 @@ library(dplyr)
 library(ggplot2)
 ```
 
-In our design, there are 16 conditions of paper planes as follows:
+##  Overview and Methodology
+
+This project focuses on altering paper helicopters by changing their rotor length, high leg width, high leg height, and whether or not its leg is clipped. We aim to answer the following research questions:
+
+1. Which factors seem to be the most important for making helicopters that fly longer?
+2. Is there any evidence that the effect of rotor length differs by leg width?
+3. What would you recommend as the ideal combination to make the helicopter fly long?
+
+We performed a full factorial design for this experiment. This design appeared to best answer our research questions since we are interested in determining the best combination of all four factors. We also want to make sure that we can estimate the main effects of each factor as well as the interaction effect specifically between rotor length and leg width. A fractional factorial design would either not allow us to calculate all effects or require tedious planning on how to optimally craft the design. We felt that creating the $2^4$ combinations of a full factorial design was not enough to warrant considering a fractional design, so we went for the full design. 
+
+The 16 conditions of paper planes are as follows:
 
 ID     Treatment                                ID           Treatment
 ---    ----------------------                   --------     --------------------
@@ -33,6 +43,7 @@ where the levels of highs and lows are defined as:
   - **Leg width**: low = 3.2 cm, high = 5.0 cm
   - **Leg clip**: no, yes
 
+We performed 5 trials for each condition, making a data set of 80 total observations. The treatments were completely randomized. 
 
 ```{r}
 # randomize treatment for each flight
@@ -41,16 +52,23 @@ trt = c(rep("a", 5), rep("b", 5), rep("c", 5), rep("d", 5),
         rep("ab", 5), rep("ac", 5), rep("ad", 5), rep("bc", 5),
         rep("bd", 5), rep("cd", 5), rep("abc", 5), rep("abd", 5),
         rep("acd", 5), rep("bcd", 5), rep("abcd", 5), rep("1", 5))
-sample(trt)
+sample(trt)[1:5]
 ```
 
+
+## Exploratory Data Analysis
 
 ```{r}
 plane = read.csv("paperplane.csv", header = T)
 dim(plane)
-```
 
-EDA: 
+plane <- plane %>%
+  mutate(time = distance/100,
+         rotor = as.factor(rotor),
+         leg_len = as.factor(leg_len),
+         leg_wid = as.factor(leg_wid),
+         clip = as.factor(clip))
+```
 
 ```{r}
 ggplot(plane, aes(x = time*100)) + 
@@ -62,7 +80,7 @@ ggplot(plane, aes(x = time*100)) +
   labs(title = "Distribution of Helicopter Flight Duration", 
        x = "Time (sec * 100)", y = "Count")
 ```
-  - Insights: 
+The data appears to be almost bimodal with a peak around 1.6 seconds and another around 1.9 seconds. The average time overall was `r round(mean(plane$time), 2)`. 
 
 ```{r}
 plane %>%
@@ -76,7 +94,7 @@ plane %>%
   labs(title = "Average Flight Duration by Treatments", 
        x = "Treatment", y = "Average Time (sec * 100)")
 ```
-  - insights: the presence of a - long rotor seems to be helping long duration. the presence of d is discouraging long duration.
+Looking at the average distance per treatment combination, we see that helicopters with high rotor length and high leg width last the longest in the air. Moreover, the top 6 combinations all include high rotor length, indicating that this factor may contribute to longer flight times. Conversely, helicopters with high leg length, high leg width, and a leg clip are the quickest to go down. Interestingly, this combination is high on all levels except a, high rotor length. Six of the eight worst combinations by average flight time have low rotor length. 
 
 
 ```{r}
@@ -88,7 +106,7 @@ plane %>%
 ggplot(aes(x = trt, y = time*100)) + 
   geom_boxplot() + 
   labs(title = "Distribution of Flight Duration by Treatments", 
-       x = "Treatment", y = "Duraction (sec * 100)")
+       x = "Treatment", y = "Duration (sec * 100)")
 
 tapply(plane[,1], plane[,6], sd)
 ```
@@ -98,19 +116,69 @@ tapply(plane[,1], plane[,6], sd)
     - The var for group d and acd are relatively larger. However, since the total duration is measured under second, the largest difference is only several miliseconds away, so we can use regression under the equal var assumption. (from the math calculation, most of them confirmed to be the same --> with very small sample size, it is difficult to conclude definitively that the variances are different across groups.)
     
 
+
 Modeling: 
 
 ```{r}
-reg_inter = lm(time ~ factor(rotor) * factor(leg_len) * factor(leg_wid) * factor(clip), data = plane)
-summary(reg_inter)
+# main effect model
+mod.main = lm(time ~ rotor + leg_len + leg_wid + clip, data = plane)
+summary(mod.main)
 ```
 
 ```{r}
-plot(reg_inter)
+par(mfrow = c(2,2))
+plot(mod.main)
+```
+
+```{r}
+# model with 2-way interactions
+mod.twoway = lm(time ~ rotor + leg_len + leg_wid + clip + rotor*leg_len + 
+                rotor*leg_wid + rotor*clip + leg_len*leg_wid + leg_len*clip +
+                leg_wid*clip, data = plane)
+summary(mod.twoway)
+```
+
+```{r}
+par(mfrow = c(2,2))
+plot(mod.twoway)
+```
+
+```{r}
+# model with 3-way interactions
+mod.threeway = lm(time ~ rotor * leg_len * leg_wid * clip, data = plane)
+summary(mod.threeway)
 ```
 
 
+```{r}
+par(mfrow = c(2,2))
+plot(mod.threeway)
+```
 
+Nested F-Tests
+```{r}
+#main effects vs. two-way
+anova(mod.main, mod.twoway, test='F')
+```
+
+```{r}
+#main effects vs. three-way
+anova(mod.main, mod.threeway, test='F')
+```
+
+```{r}
+#two-way vs. three-way
+anova(mod.twoway, mod.threeway, test='F')
+```
+
+
+## Question 1: Which factors seem to be the most important for making helicopters that fly longer?
+
+
+## Question 2: Is there any evidence that the effect of rotor length differs by leg width?
+
+
+## Question 3: What would you recommend as the ideal combination to make the helicopter fly long?
 
 
 
