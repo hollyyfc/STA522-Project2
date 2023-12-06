@@ -11,9 +11,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(dplyr)
 library(ggplot2)
+library(kableExtra)
 ```
 
-##  Overview
+#  Overview
 
 While paper helicopters may seem like child's play, have you ever pondered the strategic nuances behind crafting the optimal design to conquer the skies? In the realm of whimsical flights and childhood contests, we dissect the intricacies of paper helicopter design, armed with the fundamental tools of inquiry – regular paper, a pair of scissors, and a humble paperclip, to explore the relationship between paper helicopter features and flight duration. Specifically, we focuses on four major factors in helicopter designs that are commonly assumed to effective – the rotor length, the leg length, the leg width, and the paperclip-on-leg maneuver. By altering the combinations of these factors, we aim to answer the following research questions:
 
@@ -21,7 +22,7 @@ While paper helicopters may seem like child's play, have you ever pondered the s
 2. Is there any evidence that the effect of rotor length differs by leg width?
 3. What would be recommended as the ideal combination to make the helicopter fly long (in terms of time)?
 
-## Methodology
+# Methodology
 
 In this study, we performed a full factorial randomized experiment on all $2^4$ combinations of the main factors. Each combination is sampled 5 flights, leading to a total of 80 observations as our sample size. During the sampling process, the treatment values are randomly permuted under the guideline of a randomized experiment, and the flight duration is sequentially collected by dropping the assigned combination of paper helicopter from a fixed height of 6'6''. 
 
@@ -62,10 +63,10 @@ Here is a sneak peek of our final dataframe, where variable `time` is measured i
 
 ```{r}
 plane = read.csv("paperplane.csv", header = T)
-head(plane) # dimension: 80 rows 6 columns
+kable(head(plane), booktabs = T, format = "latex") # dimension: 80 rows 6 columns
 ```
-
-## Exploratory Data Analysis
+\newpage
+# Exploratory Data Analysis
 
 ```{r}
 plane <- plane %>%
@@ -75,8 +76,11 @@ plane <- plane %>%
          clip = as.factor(clip))
 ```
 
+## Outcome Distribution
 
-```{r}
+As a functional check, we visualized the distribution of our collected flight duration in seconds magnified by 100 times to gain some insights. The plot below exhibits a roughly bimodal distribution with peaks around 1.6 seconds and 1.9 seconds. The overall shape is also slightly right-skewed, with an average time  of `r round(mean(plane$time), 2)`. It is yet to be decided whether the normality concern should be fixed based on the marginal distribution of Y|X (visualized below as a boxplot) along with the model diagnostic plots on residuals, but we will not worry too much as of the small sample size in each treatment. 
+
+```{r, fig.width=4, fig.height=3, fig.align='center'}
 ggplot(plane, aes(x = time*100)) + 
   geom_histogram(aes(y=after_stat(density)), 
                  binwidth=7, color="black", fill="grey") + 
@@ -86,10 +90,12 @@ ggplot(plane, aes(x = time*100)) +
   labs(title = "Distribution of Helicopter Flight Duration", 
        x = "Time (sec * 100)", y = "Count")
 ```
-  - Insights: The data appears to be almost bimodal with a peak around 1.6 seconds and another around 1.9 seconds. The average time overall was `r round(mean(plane$time), 2)`. 
 
+## Outcome by Treatments
 
-```{r}
+We proceed to explore the general behaviors of flight duration by treatments. Looking at the average time per treatment combination, we see that helicopters with high rotor length and high leg width (ac) last the longest in the air. Moreover, the top six combinations all contain high rotor length (a), indicating that it may contribute to longer flight times. Conversely, helicopters with high leg length, high leg width, and a leg clip (bcd) are the quickest to go down. Interestingly, this combination is high on all levels except rotor length. And six of the eight worst combinations by average flight time have low rotor length and leg clips (d). 
+
+```{r,fig.width=4, fig.height=3, fig.align='center'}
 plane %>%
   group_by(trt) %>%
   summarise(mean_time = mean(time*100)) %>%
@@ -101,11 +107,14 @@ plane %>%
   labs(title = "Average Flight Duration by Treatments", 
        x = "Treatment", y = "Average Time (sec * 100)")
 ```
-  - Insights: the presence of a - long rotor seems to be helping long duration. the presence of d is discouraging long duration.
-  Looking at the average distance per treatment combination, we see that helicopters with high rotor length and high leg width last the longest in the air. Moreover, the top 6 combinations all include high rotor length, indicating that this factor may contribute to longer flight times. Conversely, helicopters with high leg length, high leg width, and a leg clip are the quickest to go down. Interestingly, this combination is high on all levels except a, high rotor length. Six of the eight worst combinations by average flight time have low rotor length. 
 
+If we proceed to the boxplot showing the flight duration distribution by each treatment group, it is relatively difficult to interpret with only 5 observations per box. However, some insights can be observed: 
 
-```{r}
+  - There are several outliers in treatment bcd and other groups. We may want to estimate the model with and without that point to see if our conclusions are overly sensitive to that point. But since most outliers in groups are within the normal range, plus the actual difference is measured on millisecond scales, we will not worry too much. 
+  - The distribution of time in each box seems normal, except for some groups such as ac, a, and d, where the right-skewed shape persists. Thus, we might expect some points in our modeling exhibiting non-normal behavior with respect to residuals, but we would not carry out further transformations for the sake of interpretability. 
+  - The variance for group d and acd are relatively large. However, since the total duration is measured under second, the largest difference is only milliseconds away, so we could still proceed with regression under the equal variance assumption. Moreover, from the actual variance calculations, most of the groups confirmed to be the same. With such small sample size, it is difficult to conclude definitively that the variances are radically different across groups.
+
+```{r,fig.width=4, fig.height=3, fig.align='center'}
 plane %>%
   mutate(trt = factor(trt, levels = c("ac", "ad", "ab", "a", 
                                       "abd", "abc", "1", "b", 
@@ -118,97 +127,122 @@ ggplot(aes(x = trt, y = time*100)) +
 
 tapply(plane[,1], plane[,6], sd)
 ```
-  - Insights: box plots are difficult to interpret with only 5 or so observations per box, but we can still observe 
-    - an outlier in treatment bcd and other groups: we may want to estimate the model with and without that point to see if our conclusions are overly sensitive to that point. But since most outliers in groups are within the normal range, we don't worry too much. 
-    - Along w previous plot, we might need to resolve the problem of distribution of time is right-skewed.
-    - The var for group d and acd are relatively larger. However, since the total duration is measured under second, the largest difference is only several miliseconds away, so we can use regression under the equal var assumption. (from the math calculation, most of them confirmed to be the same --> with very small sample size, it is difficult to conclude definitively that the variances are different across groups.)
     
 
-## Modeling 
+# Modeling 
+
+## Q1: Most Important Factor for Longer Flight
+
+To assess the relative importance of each factor, we first adopt a linear regression model under the assumption that all interactions between factors exist. Checking model diagnostic plots, we can say that the model assumptions are not violated and the residual distribution is aligned. However, simply comparing the coefficient estimates from model output would not render us a statistically reliable answer. 
+
+```{r}
+mod.all = lm(time ~ rotor * leg_len * leg_wid * clip, data = plane)
+par(mfrow = c(2,2))
+plot(mod.all)
+```
+In order to compare the contribution of each factor, we decided to use multiple nested F-tests. In each comparison, two models with and without a specific factor are subject to testing. After collecting all test statistics, we chose the best factor yielding the most significant results. 
+
+### Rotor Length
+
+```{r}
+mod.without_a = lm(time ~ leg_len * leg_wid * clip, data = plane)
+anova(mod.without_a, mod.all)
+```
+
+### Leg Length
+
+```{r}
+mod.without_b = lm(time ~ rotor * leg_wid * clip, data = plane)
+anova(mod.without_b, mod.all)
+```
+
+### Leg Width
+
+```{r}
+mod.without_c = lm(time ~ rotor * leg_len * clip, data = plane)
+anova(mod.without_c, mod.all)
+```
+
+### Leg Clip
+
+```{r}
+mod.without_d = lm(time ~ rotor * leg_len * leg_wid, data = plane)
+anova(mod.without_d, mod.all)
+```
+
+Based on the pair-wise results, we can see that the relative importance to flight duration follows: `clip` > `leg_wid` > `rotor` > `leg_len`. However, to answer the question of which main factor contributes the most to longer flight, we need to check the model output below. From the results, only rotor length is contributing a positive estimated effect of 0.02 with the most positive-skewed 95% confidence interval of (-0.15690908, 0.196909085). Therefore, out of the four factors, we think having a high rotor length (8.5 cm) is the most important for making helicopters ﬂy longer.
+
+```{r}
+summary(mod.all)
+```
+
+Moreover, if we assume there is no interactions, we fit a linear regression model with main effects only and discovers that high rotor length is still the only treatment that helps with longer flight duration, with an estimated effect of 0.15425 and a 95% confidence interval of (0.08084158, 0.22765842). 
 
 ```{r}
 # main effect model
 mod.main = lm(time ~ rotor + leg_len + leg_wid + clip, data = plane)
 summary(mod.main)
+confint(mod.main)
 ```
 
+## Q2: Interaction Effect
+
+Referring back to the output summary of model `mod.all`, we can see that the interaction term `rotor1:leg_wid1` is significant under $\alpha = 0.05$, with an estimated coefficient of 0.27600 and a 95% confidence interval of (0.02581277, 0.52618723). Therefore, we can say that there is an interaction between rotor length and leg width, or the eﬀect of rotor length diﬀers by leg width. 
+
 ```{r}
-par(mfrow = c(2,2))
-plot(mod.main)
+confint(mod.all)["rotor1:leg_wid1",]
 ```
+
+To gain better insights into the characteristics of interaction effect, we brought the analysis to one step further: by fitting three separate models, one with main effects only, one with main effects and two-way interactions, and one with all effects, we conducted pair-wise nested F-tests and evaluate whether some interactions are effective. 
 
 ```{r}
 # model with 2-way interactions
-mod.twoway = lm(time ~ rotor + leg_len + leg_wid + clip + rotor:leg_len + 
-                rotor:leg_wid + rotor:clip + leg_len:leg_wid + leg_len:clip +
-                leg_wid:clip, data = plane)
-summary(mod.twoway)
+mod.twoway = lm(time ~ rotor + leg_len + leg_wid + clip + rotor:leg_len +
+                  rotor:leg_wid + rotor:clip + leg_len:leg_wid + leg_len:clip +
+                  leg_wid:clip, data = plane)
 ```
 
-```{r}
-par(mfrow = c(2,2))
-plot(mod.twoway)
-```
-
-```{r}
-# model with 3-way interactions
-mod.all = lm(time ~ rotor * leg_len * leg_wid * clip, data = plane)
-summary(mod.all)
-```
-
-
-```{r}
-par(mfrow = c(2,2))
-plot(mod.all)
-```
-
-### Nested F-Tests
+### Main Effects & Two-way Interactions
 
 ```{r}
 #main effects vs. two-way
 anova(mod.main, mod.twoway, test='F')
 ```
 
-```{r}
-#main effects vs. three-way
-anova(mod.main, mod.all, test='F')
-```
+### Two-way Interactions & All Interactions
 
 ```{r}
 #two-way vs. three-way
 anova(mod.twoway, mod.all, test='F')
 ```
 
- Two-way > All > Main: two way interactions are the most significant, but three-way seems to be not significant compared with two-way. 
+Comparing the F statistics and p-values, we can see that all three- and four-way interactions are insignificant under the testing level of $\alpha = 0.05$. This suggests that the high level interactions are not significantly contributing to the explanatory power, but a larger number of sample size might add more information to the analysis and we cannot be definitive at this point. 
 
-# in and out F-test -> p-value most important 
-# R-squared change -> which one change the most 
 
-# Q3: expected mean -> beta add up -> CI (change baselines) -> each baseline new CI 
-
+## Q3: Ideal Combination for Longer Flight
 
 To find the best combination of factors, we derived the average time, in seconds, that a helicopter is expected to fly for all combinations along with each estimate's 95% confidence interval. We found these values by modifying the baseline values so the intercept estimate corresponded with our combination of interest. The 95% confidence interval for the intercept estimate then served as our confidence interval for the expected average flight time of a helicopter with the specified combination of values. 
 
-These calculations involved creating four new variables -- `rotor_low`: signifies low rotor length, `leg_len_low`: signifies low leg length, `leg_wid_low`: signifies low width length, `clip_low`: signifies the absence of a clip. Then, a full four-way model was calculated based on the combination of interest. For instance, if we were interested in the combination low rotor length, low leg length, high leg width, and a clip (treatment cd), we would specify the model `time ~ rotor * leg_len * leg_wid_low * clip_low`. This formula gives us a baseline value that corresponds with our combination of interest, and therefore the estimate of the intercept is $E[\bar{y}_{cd}]$. 
+These calculations involved creating four new variables: 
+
+  - `rotor_low`: signifies low rotor length
+  - `leg_len_low`: signifies low leg length
+  - `leg_wid_low`: signifies low width length
+  - `clip_low`: signifies the absence of a clip
 
 ```{r}
-plane$rotor_low = 1 - as.numeric(plane$rotor)
-plane$leg_len_low =  1 - as.numeric(plane$leg_len)
-plane$leg_wid_low = 1 -  as.numeric(plane$leg_wid)
-plane$clip_low =  1 - as.numeric(plane$clip)
+plane_all <- plane %>%
+  mutate(rotor_low = as.factor(ifelse(rotor == 0, 1, 0)),
+         leg_len_low = as.factor(ifelse(leg_len == 0, 1, 0)),
+         leg_wid_low = as.factor(ifelse(leg_wid == 0, 1, 0)),
+         clip_low = as.factor(ifelse(clip == 0, 1, 0)))
 ```
 
-```{r}
-plane <- plane %>%
-  mutate(rotor_low = as.factor(rotor_low),
-         leg_len_low = as.factor(leg_len_low),
-         leg_wid_low = as.factor(leg_wid_low),
-         clip_low = as.factor(clip_low))
-```
+Then, a full four-way model was calculated based on the combination of interest. For instance, if we were interested in the combination of low rotor length, low leg length, high leg width, and a leg clip (treatment cd), we would specify the model `time ~ rotor * leg_len * leg_wid_low * clip_low`. This formula gives us a baseline value that corresponds with our combination of interest, and therefore the estimate of the intercept is $E[\bar{y}_{cd}]$. 
 
 ```{r}
 # example for treatment cd
-cd = lm(time ~ rotor * leg_len * leg_wid_low * clip_low, data = plane)
+cd = lm(time ~ rotor * leg_len * leg_wid_low * clip_low, data = plane_all)
 summary(cd)$coefficients[1,]
 ```
 
@@ -217,12 +251,11 @@ summary(cd)$coefficients[1,]
 confint(cd)[1,]
 ```
 
-
 The expected average time in seconds for each helicopter alteration is listed below:
 
 Combination            Lower          Estimate          Upper
 ------------           ---------      ------------      -------------
-(0)                    1.795          1.92              2.045
+1                      1.795          1.92              2.045
 a                      1.815          1.94              2.065
 b                      1.787          1.912             2.037
 c                      1.735          1.86              1.985
@@ -239,8 +272,31 @@ acd                    1.599          1.724             1.849
 bcd                    1.335          1.46              1.585 
 abcd                   1.499          1.624             1.749
 
+```{r, include=FALSE}
+Combination <- c("1", "a", "b", "c", "d", "ab", "ac", "ad", 
+                 "bc", "bd", "cd", "abc", "abd", "acd", "bcd", "abcd")
+Lower <- c(1.795, 1.815, 1.787, 1.735, 1.771, 1.873, 2.031, 1.991, 
+           1.731, 1.561, 1.455, 1.795, 1.801, 1.599, 1.335, 1.499)
+Estimate <- c(1.92, 1.94, 1.912, 1.86, 1.896, 1.998, 2.156, 2.116, 
+              1.856, 1.686, 1.58, 1.92, 1.926, 1.724, 1.46, 1.624)
+Upper <- c(2.045, 2.065, 2.037, 1.985, 2.021, 2.123, 2.281, 2.241, 
+           1.981, 1.811, 1.705, 2.045, 2.052, 1.849, 1.585, 1.749)
+plane_final <- data.frame(Combination, Lower, Estimate, Upper)
+```
 
-As expected from the exploratory data analysis, the helicopters with high rotor length and high leg (treatment ac) width are expected to last longer in the air by an average of 2.156 seconds and a 95% confidence interval of (2.031sec, 2.281sec). Therefore, we select this combination as the best. However, the combination of high rotor length and a clip (treatment ad) was not far behind with an expected average of 2.116 seconds and a 95% confidence interval of (1.991sec, 2.241sec). Other combinations with overlapping confidence intervals to treatment ac include treatment ab (1.998, (1.873, 2.123)), a (1.94, (1.815, 2.065)), abd (1.926, (1.801, 2.052)), (0) (1.92, (1.795, 2.045)), abc (1.92, (1.795, 2.045)), and b (1.912, (1.787, 2.037)). These all have the potential to perform as well, or even better, than our chosen combination. 
+```{r,fig.height = 4, fig.width = 5,fig.align='center'}
+ggplot(plane_final, aes(x = Estimate, xmin = Lower, xmax = Upper, 
+                        y = Combination)) + 
+  geom_errorbarh(height = 0.25) +
+  geom_point() + 
+  theme_minimal() + 
+  labs(title = "Expected Mean Flight Duration by Treatments",
+       subtitle = "With 95% Confidence Interval",
+       x = "Estimated Time (s)",
+       y = element_blank())
+```
+
+As expected from the exploratory data analysis, the helicopters with 8.5cm high rotor length, 7.5cm low leg length, 5cm high leg width, and no leg clip (**treatment ac**) are expected to last longer in the air with an average duration of 2.156 seconds and a 95% confidence interval of (2.031, 2.281). Therefore, we select this combination as the best. However, the combination of high rotor length, low leg length, low leg width, and a clip (treatment ad) was not far behind with an expected average of 2.116 seconds and a 95% confidence interval of (1.991s, 2.241s). Other combinations with overlapping confidence intervals to treatment ac include treatment ab (1.998, (1.873, 2.123)), a (1.94, (1.815, 2.065)), abd (1.926, (1.801, 2.052)), (0) (1.92, (1.795, 2.045)), abc (1.92, (1.795, 2.045)), and b (1.912, (1.787, 2.037)). These all have the potential to perform as well, or even better, than our chosen combinations. 
 
 
 
