@@ -101,7 +101,7 @@ plane %>%
   labs(title = "Average Flight Duration by Treatments", 
        x = "Treatment", y = "Average Time (sec * 100)")
 ```
-  - insights: the presence of a - long rotor seems to be helping long duration. the presence of d is discouraging long duration.
+  - Insights: the presence of a - long rotor seems to be helping long duration. the presence of d is discouraging long duration.
   Looking at the average distance per treatment combination, we see that helicopters with high rotor length and high leg width last the longest in the air. Moreover, the top 6 combinations all include high rotor length, indicating that this factor may contribute to longer flight times. Conversely, helicopters with high leg length, high leg width, and a leg clip are the quickest to go down. Interestingly, this combination is high on all levels except a, high rotor length. Six of the eight worst combinations by average flight time have low rotor length. 
 
 
@@ -185,6 +185,63 @@ anova(mod.twoway, mod.all, test='F')
 # R-squared change -> which one change the most 
 
 # Q3: expected mean -> beta add up -> CI (change baselines) -> each baseline new CI 
+
+
+To find the best combination of factors, we derived the average time, in seconds, that a helicopter is expected to fly for all combinations along with each estimate's 95% confidence interval. We found these values by modifying the baseline values so the intercept estimate corresponded with our combination of interest. The 95% confidence interval for the intercept estimate then served as our confidence interval for the expected average flight time of a helicopter with the specified combination of values. 
+
+These calculations involved creating four new variables -- `rotor_low`: signifies low rotor length, `leg_len_low`: signifies low leg length, `leg_wid_low`: signifies low width length, `clip_low`: signifies the absence of a clip. Then, a full four-way model was calculated based on the combination of interest. For instance, if we were interested in the combination low rotor length, low leg length, high leg width, and a clip (treatment cd), we would specify the model `time ~ rotor * leg_len * leg_wid_low * clip_low`. This formula gives us a baseline value that corresponds with our combination of interest, and therefore the estimate of the intercept is $E[\bar{y}_{cd}]$. 
+
+```{r}
+plane$rotor_low = 1 - as.numeric(plane$rotor)
+plane$leg_len_low =  1 - as.numeric(plane$leg_len)
+plane$leg_wid_low = 1 -  as.numeric(plane$leg_wid)
+plane$clip_low =  1 - as.numeric(plane$clip)
+```
+
+```{r}
+plane <- plane %>%
+  mutate(rotor_low = as.factor(rotor_low),
+         leg_len_low = as.factor(leg_len_low),
+         leg_wid_low = as.factor(leg_wid_low),
+         clip_low = as.factor(clip_low))
+```
+
+```{r}
+# example for treatment cd
+cd = lm(time ~ rotor * leg_len * leg_wid_low * clip_low, data = plane)
+summary(cd)$coefficients[1,]
+```
+
+```{r}
+# 95% CI for treatment cd (intercept)
+confint(cd)[1,]
+```
+
+
+The expected average time in seconds for each helicopter alteration is listed below:
+
+Combination            Lower          Estimate          Upper
+------------           ---------      ------------      -------------
+(0)                    1.795          1.92              2.045
+a                      1.815          1.94              2.065
+b                      1.787          1.912             2.037
+c                      1.735          1.86              1.985
+d                      1.771          1.896             2.021
+ab                     1.873          1.998             2.123
+ac                     2.031          2.156             2.281
+ad                     1.991          2.116             2.241
+bc                     1.731          1.856             1.981
+bd                     1.561          1.686             1.811
+cd                     1.455          1.58              1.705
+abc                    1.795          1.92              2.045   
+abd                    1.801          1.926             2.052
+acd                    1.599          1.724             1.849
+bcd                    1.335          1.46              1.585 
+abcd                   1.499          1.624             1.749
+
+
+As expected from the exploratory data analysis, the helicopters with high rotor length and high leg (treatment ac) width are expected to last longer in the air by an average of 2.156 seconds and a 95% confidence interval of (2.031sec, 2.281sec). Therefore, we select this combination as the best. However, the combination of high rotor length and a clip (treatment ad) was not far behind with an expected average of 2.116 seconds and a 95% confidence interval of (1.991sec, 2.241sec). Other combinations with overlapping confidence intervals to treatment ac include treatment ab (1.998, (1.873, 2.123)), a (1.94, (1.815, 2.065)), abd (1.926, (1.801, 2.052)), (0) (1.92, (1.795, 2.045)), abc (1.92, (1.795, 2.045)), and b (1.912, (1.787, 2.037)). These all have the potential to perform as well, or even better, than our chosen combination. 
+
 
 
 
