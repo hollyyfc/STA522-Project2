@@ -7,7 +7,7 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
+# load 
 library(tidyverse)
 library(dplyr)
 library(ggplot2)
